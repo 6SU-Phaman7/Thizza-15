@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nolwandle's Play & Discovery Space</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        /* Custom spinner for loading state */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #f9a8d4;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        /* Message box styling */
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        /* CSS for the talking animation */
+        #mouth {
+            transform-origin: center;
+            animation: none;
+        }
+        .talking #mouth {
+            animation: talk 0.5s infinite alternate;
+        }
+        @keyframes talk {
+            0% { transform: scaleY(1); }
+            100% { transform: scaleY(0.5); }
+        }
+        .correct #mouth {
+            animation: none;
+            transform: scaleY(1.2);
+        }
+        .wrong #mouth {
+            animation: none;
+            transform: scaleY(0.8);
+        }
+        .thinking #eye-left, .thinking #eye-right {
+            animation: blink 2s infinite;
+        }
+        @keyframes blink {
+            0%, 20%, 40%, 100% { transform: scaleY(1); }
+            10%, 30% { transform: scaleY(0.1); }
+        }
+    </style>
+</head>
+<body class="p-4 flex flex-col items-center min-h-screen">
+
+    <div class="bg-white p-6 rounded-3xl shadow-xl max-w-2xl w-full mx-auto my-auto border-4 border-pink-300">
+        <h1 class="text-3xl sm:text-4xl font-bold text-center mb-2 text-indigo-600">Nolwandle's Play & Discovery Space</h1>
+        <p class="text-center text-gray-500 mb-8 text-lg">Hello, Nolwandle! Let's learn and play together. / Hallo, Nolwandle! Kom ons leer en speel saam. / Sawubona, Nolwandle! Asihambe futhi sidlale.</p>
+
+        <div id="ai-face-container" class="flex justify-center mb-8">
+            <svg id="ai-face" width="150" height="150" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="100" cy="100" r="90" fill="#FEE2E2" stroke="#EF4444" stroke-width="4"/>
+                <circle id="eye-left" cx="70" cy="80" r="15" fill="#FFFFFF" stroke="#EF4444" stroke-width="3"/>
+                <circle id="pupil-left" cx="70" cy="80" r="7" fill="#EF4444"/>
+                <circle id="eye-right" cx="130" cy="80" r="15" fill="#FFFFFF" stroke="#EF4444" stroke-width="3"/>
+                <circle id="pupil-right" cx="130" cy="80" r="7" fill="#EF4444"/>
+                <rect id="mouth" x="70" y="125" width="60" height="20" rx="10" ry="10" fill="#EF4444"/>
+            </svg>
+        </div>
+
+        <div id="message-box" class="message-box-overlay hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-lg border-4 border-green-400 max-w-sm text-center">
+                <p id="message-text" class="text-2xl font-bold text-gray-700 mb-4"></p>
+                <button id="close-message" class="bg-green-500 text-white font-bold py-2 px-6 rounded-full shadow-md hover:bg-green-600 transition-colors">Okay!</button>
+            </div>
+        </div>
+
+        <div class="bg-blue-100 p-5 rounded-2xl mb-6 shadow-md border-2 border-blue-300">
+            <h2 class="text-2xl font-bold text-blue-800 mb-4 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-2 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Learn Words / Leer woorde / Funda Amagama
+            </h2>
+            <p class="text-gray-700 mb-4">Ask me about a word or write a simple sentence! / Vra my 'n woord of skryf 'n eenvoudige sin! / Ngibuze ngamagama noma ubhale umusho olula!</p>
+            <textarea id="language-input" class="w-full h-24 p-3 rounded-xl border-2 border-blue-200 focus:outline-none focus:border-blue-400 mb-4 resize-none text-lg" placeholder="e.g., What does 'happy' mean? | Wat beteken 'gelukkig'? | Kusho ukuthini 'injabulo'?"></textarea>
+            <button id="language-button" class="w-full bg-blue-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-blue-600 transition-colors flex items-center justify-center">
+                <span id="language-button-text">Ask the AI</span>
+                <div id="language-spinner" class="spinner ml-2 hidden"></div>
+            </button>
+            <div id="language-response" class="mt-4 p-4 bg-white rounded-xl border-2 border-blue-200 text-gray-800 text-lg min-h-[50px]"></div>
+        </div>
+
+        <div class="bg-yellow-100 p-5 rounded-2xl mb-6 shadow-md border-2 border-yellow-300">
+            <h2 class="text-2xl font-bold text-yellow-800 mb-4 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-2 text-yellow-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 17.5l-2.7-2.7-2.7 2.7-3.6-3.6-2.7 2.7V10l3.6-3.6 2.7 2.7 2.7-2.7 3.6 3.6-2.7 2.7 2.7 2.7z"/></svg>
+                Counting Fun! / Tel pret! / Ukubala Okumnandi!
+            </h2>
+            <p class="text-gray-700 mb-4">How many do you see? / Hoeveel sien jy? / Ubana kangaki?</p>
+            <div id="counting-area" class="text-4xl text-center mb-4 min-h-[50px]"></div>
+            <div class="flex items-center justify-center space-x-2 mb-4">
+                <input type="number" id="counting-answer" class="w-24 text-center p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-2xl" placeholder="?">
+                <button id="counting-check-button" class="bg-yellow-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-yellow-600 transition-colors">Check</button>
+            </div>
+            <button id="new-counting-button" class="w-full bg-purple-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-purple-600 transition-colors">New Game</button>
+        </div>
+
+        <div class="bg-pink-100 p-5 rounded-2xl shadow-md border-2 border-pink-300">
+            <h2 class="text-2xl font-bold text-pink-800 mb-4 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-2 text-pink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-6"/></svg>
+                Practice Math / Oefen Wiskunde / Ukuzijwayeza Izibalo
+            </h2>
+            <div class="flex flex-col items-center justify-center mb-4 text-4xl sm:text-5xl font-bold text-gray-800">
+                <span id="math-problem">Let's do some math!</span>
+            </div>
+            <div class="flex items-center justify-center space-x-2 mb-4">
+                <input type="number" id="math-answer" class="w-24 text-center p-3 rounded-xl border-2 border-pink-200 focus:outline-none focus:border-pink-400 text-2xl" placeholder="?">
+                <button id="math-check-button" class="bg-pink-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-pink-600 transition-colors">Check</button>
+            </div>
+            <button id="new-problem-button" class="w-full bg-indigo-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-indigo-600 transition-colors">New Problem</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- IMPORTANT ---
+        // You must get a free API key from Google AI Studio and paste it here.
+        // Go to: https://aistudio.google.com/app/apikey
+        const apiKey = "AIzaSyC1au7bsvVwrW-VdfsdynFOax155T5ZeCA";
+        // --- IMPORTANT ---
+
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+
+        const fetchWithRetry = async (url, options, retries = 5, delay = 1000) => {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429 && i < retries - 1) {
+                        console.warn(`API rate limit exceeded. Retrying in ${delay}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                        continue;
+                    }
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`API Error: ${response.status} - ${errorData.error.message}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i < retries - 1) {
+                        console.error(`Fetch error: ${error.message}. Retrying...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+            throw new Error('Max retries reached. Failed to fetch from API.');
+        };
+
+        // DOM Elements
+        const languageInput = document.getElementById('language-input');
+        const languageButton = document.getElementById('language-button');
+        const languageButtonText = document.getElementById('language-button-text');
+        const languageSpinner = document.getElementById('language-spinner');
+        const languageResponse = document.getElementById('language-response');
+        
+        const mathProblemEl = document.getElementById('math-problem');
+        const mathAnswerInput = document.getElementById('math-answer');
+        const mathCheckButton = document.getElementById('math-check-button');
+        const newProblemButton = document.getElementById('new-problem-button');
+
+        const countingArea = document.getElementById('counting-area');
+        const countingAnswerInput = document.getElementById('counting-answer');
+        const countingCheckButton = document.getElementById('counting-check-button');
+        const newCountingButton = document.getElementById('new-counting-button');
+
+        const messageBoxOverlay = document.getElementById('message-box');
+        const messageBoxText = document.getElementById('message-text');
+        const closeMessageButton = document.getElementById('close-message');
+
+        const aiFace = document.getElementById('ai-face');
+
+        let currentMathAnswer = 0;
+        let currentCountingAnswer = 0;
+
+        // Function to show a custom message box
+        const showMessage = (text, isSuccess = false) => {
+            messageBoxText.textContent = text;
+            const borderColor = isSuccess ? 'border-green-400' : 'border-red-400';
+            messageBoxOverlay.querySelector('div').className = `bg-white p-6 rounded-2xl shadow-lg border-4 ${borderColor} max-w-sm text-center`;
+            messageBoxOverlay.querySelector('button').className = `bg-${isSuccess ? 'green' : 'red'}-500 text-white font-bold py-2 px-6 rounded-full shadow-md hover:bg-${isSuccess ? 'green' : 'red'}-600 transition-colors`;
+            messageBoxOverlay.classList.remove('hidden');
+        };
+
+        closeMessageButton.addEventListener('click', () => {
+            messageBoxOverlay.classList.add('hidden');
+            aiFace.classList.remove('correct', 'wrong', 'talking', 'thinking');
+        });
+
+        // Language learning functionality
+        languageButton.addEventListener('click', async () => {
+            const prompt = languageInput.value.trim();
+            if (!prompt) return;
+            
+            if (apiKey === "PASTE_YOUR_GOOGLE_AI_KEY_HERE") {
+                showMessage("The AI needs an API key to work. Please add it to the code.", false);
+                return;
+            }
+
+            aiFace.classList.add('thinking');
+
+            languageButtonText.classList.add('hidden');
+            languageSpinner.classList.remove('hidden');
+            languageButton.disabled = true;
+            languageResponse.textContent = "";
+
+            const chatHistory = [];
+            const userPrompt = `You are a friendly and encouraging tutor for a 6-year-old child named Nolwandle. Your task is to respond to her questions about language and words. Keep your answers very simple, short (1-2 sentences), and use positive language. If she asks about a word, explain it in simple terms. If she writes a sentence, tell her it's a great sentence. If the input is in Afrikaans, respond in simple Afrikaans. If the input is in isiZulu, respond in simple isiZulu. Respond to this: '${prompt}'`;
+            chatHistory.push({ role: "user", parts: [{ text: userPrompt }] });
+
+            const payload = { contents: chatHistory };
+
+            try {
+                const response = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const aiResponse = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (aiResponse) {
+                    languageResponse.textContent = aiResponse;
+                    aiFace.classList.remove('thinking');
+                    aiFace.classList.add('talking');
+                    setTimeout(() => {
+                        aiFace.classList.remove('talking');
+                    }, 5000); // Talk animation for 5 seconds
+                } else {
+                    languageResponse.textContent = "Oops, I'm having a little trouble. Can you try asking me something else?";
+                    aiFace.classList.remove('thinking');
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                languageResponse.textContent = "Oops, something went wrong. Let's try again later!";
+                aiFace.classList.remove('thinking');
+            } finally {
+                languageButtonText.classList.remove('hidden');
+                languageSpinner.classList.add('hidden');
+                languageButton.disabled = false;
+            }
+        });
+
+        // Math learning functionality
+        const generateNewMathProblem = () => {
+            const num1 = Math.floor(Math.random() * 10) + 1;
+            const num2 = Math.floor(Math.random() * 10) + 1;
+            const operator = Math.random() > 0.5 ? '+' : '-';
+
+            if (operator === '-' && num1 < num2) {
+                // Swap numbers to avoid negative results
+                [num1, num2] = [num2, num1]; 
+            }
+
+            currentMathAnswer = operator === '+' ? num1 + num2 : num1 - num2;
+            mathProblemEl.textContent = `${num1} ${operator} ${num2} = ?`;
+            mathAnswerInput.value = '';
+            aiFace.classList.remove('correct', 'wrong', 'talking', 'thinking');
+        };
+
+        mathCheckButton.addEventListener('click', () => {
+            const userAnswer = parseInt(mathAnswerInput.value, 10);
+            if (isNaN(userAnswer)) {
+                showMessage("Please enter a number!", false);
+                return;
+            }
+
+            if (userAnswer === currentMathAnswer) {
+                showMessage("That's right! Amazing job!", true);
+                aiFace.classList.add('correct');
+            } else {
+                showMessage("That's not quite it. You can do it! Try again!", false);
+                aiFace.classList.add('wrong');
+            }
+        });
+        
+        newProblemButton.addEventListener('click', generateNewMathProblem);
+
+        // Counting game functionality
+        const emojis = ['⭐', '💖', '🍎', '🎈', '🍭', '🌈'];
+        const generateCountingProblem = () => {
+            const count = Math.floor(Math.random() * 10) + 1;
+            const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+            let problemString = '';
+            for (let i = 0; i < count; i++) {
+                problemString += emoji;
+            }
+            countingArea.textContent = problemString;
+            currentCountingAnswer = count;
+            countingAnswerInput.value = '';
+            aiFace.classList.remove('correct', 'wrong', 'talking', 'thinking');
+        };
+
+        countingCheckButton.addEventListener('click', () => {
+            const userAnswer = parseInt(countingAnswerInput.value, 10);
+            if (isNaN(userAnswer)) {
+                showMessage("Please enter a number!", false);
+                return;
+            }
+
+            if (userAnswer === currentCountingAnswer) {
+                showMessage("Wow, that's exactly right! Great counting!", true);
+                aiFace.classList.add('correct');
+            } else {
+                showMessage("Hmm, let's count them again slowly. You can do it!", false);
+                aiFace.classList.add('wrong');
+            }
+        });
+
+        newCountingButton.addEventListener('click', generateCountingProblem);
+
+        // Initial setup
+        window.onload = () => {
+            generateNewMathProblem();
+            generateCountingProblem();
+        };
+
+    </script>
+</body>
+</html>
+
+
