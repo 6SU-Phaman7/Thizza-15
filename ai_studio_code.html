@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nolwandle's Play & Discovery Space</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #f9a8d4;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .message-box-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); display: flex;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+
+        #ai-face-container svg * {
+            transition: transform 0.3s ease-in-out; transform-origin: center;
+        }
+        #eye-left-group, #eye-right-group { animation: blink-idle 6s infinite; }
+        @keyframes blink-idle { 0%, 96%, 100% { transform: scaleY(1); } 98% { transform: scaleY(0.1); } }
+        .thinking #eye-left-group, .thinking #eye-right-group { animation: blink-thinking 2s infinite; }
+        @keyframes blink-thinking { 0%, 20%, 40%, 100% { transform: scaleY(1); } 10%, 30% { transform: scaleY(0.1); } }
+        .thinking #pupil-left, .thinking #pupil-right { animation: look-around 4s infinite ease-in-out; }
+        @keyframes look-around { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        .thinking #ai-face { animation: head-tilt 4s infinite alternate ease-in-out; }
+        @keyframes head-tilt { from { transform: rotate(-2deg); } to { transform: rotate(2deg); } }
+        .thinking #mouth { transform: scaleY(0.2); }
+        .talking #mouth { animation: talk 0.3s infinite alternate ease-in-out; }
+        @keyframes talk { from { transform: scaleY(0.4); } to { transform: scaleY(1.2); } }
+        .correct #ai-face { animation: happy-bounce 0.6s ease-out; }
+        @keyframes happy-bounce { 0% { transform: translateY(0) scale(1); } 30% { transform: translateY(-10px) scale(1.05); } 60% { transform: translateY(3px) scale(0.95); } 100% { transform: translateY(0) scale(1); } }
+        .correct #eye-left-group, .correct #eye-right-group { transform: scale(1.15); }
+        .correct #mouth { transform: scale(1.1, 1.4); }
+        .wrong #eye-left-group { transform: rotate(10deg) translateY(4px); }
+        .wrong #eye-right-group { transform: rotate(-10deg) translateY(4px); }
+        .wrong #mouth { transform: scaleY(-1); }
+
+        #mic-button.listening { animation: pulse 1.5s infinite; background-color: #EC4899; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(236, 72, 153, 0); } 100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0); } }
+        
+        .difficulty-toggle input { display: none; }
+        .difficulty-toggle label { cursor: pointer; padding: 0.5rem 1rem; border-radius: 9999px; transition: background-color 0.3s, color 0.3s; border: 2px solid transparent; }
+        .difficulty-toggle input:checked + label { font-weight: bold; }
+        .difficulty-toggle input#difficulty-easy:checked + label { background-color: #60A5FA; color: white; border-color: #2563EB; }
+        .difficulty-toggle input#difficulty-medium:checked + label { background-color: #FBBF24; color: white; border-color: #D97706; }
+        .difficulty-toggle input#difficulty-hard:checked + label { background-color: #F87171; color: white; border-color: #DC2626; }
+        
+        #progress-bar-container { background-color: #e0e0e0; border-radius: 9999px; overflow: hidden; height: 20px; border: 2px solid #a0a0a0; }
+        #progress-bar { height: 100%; background: linear-gradient(90deg, #6EE7B7 0%, #3B82F6 100%); transition: width 0.5s ease-in-out; }
+        
+        .points-animation {
+            position: fixed; bottom: 50%; left: 50%; transform: translateX(-50%);
+            font-size: 2rem; font-weight: bold; color: #10B981;
+            background-color: rgba(255, 255, 255, 0.8); padding: 0.5rem 1rem;
+            border-radius: 1rem; z-index: 2000; animation: rise-and-fade 1.5s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes rise-and-fade { 0% { opacity: 1; transform: translate(-50%, 0) scale(0.5); } 100% { opacity: 0; transform: translate(-50%, -80px) scale(1); } }
+        
+        #reaction-game-area {
+            position: relative; background-color: #fff; border: 2px solid #a3e635;
+            height: 200px; border-radius: 1rem; display: flex; justify-content: center;
+            align-items: center; overflow: hidden;
+        }
+        .reaction-target { position: absolute; border-radius: 50%; background-color: #ef4444; cursor: pointer; transition: all 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .target-easy { width: 80px; height: 80px; }
+        .target-medium { width: 50px; height: 50px; }
+        .target-hard { width: 30px; height: 30px; }
+        
+        #memory-game-board { display: grid; gap: 0.5rem; perspective: 1000px; }
+        .memory-card { position: relative; width: 100%; height: 80px; cursor: pointer; transform-style: preserve-3d; transition: transform 0.6s; }
+        .memory-card.flipped { transform: rotateY(180deg); }
+        .memory-card .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; justify-content: center; align-items: center; border-radius: 0.75rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card-back { background-color: #22d3ee; color: white; font-size: 2.5rem; }
+        .card-front { background-color: #f0f9ff; color: black; font-size: 2rem; transform: rotateY(180deg); }
+        .memory-card.matched { cursor: default; opacity: 0.6; }
+
+        .chart-bar-bg { background-color: #e5e7eb; border-radius: 0.375rem; overflow: hidden; }
+        .chart-bar { transition: width 0.5s ease-out; }
+
+    </style>
+    <script type="importmap">
+    { "imports": { "@google/genai": "https://esm.run/@google/genai" } }
+    </script>
+</head>
+<body class="p-4 flex flex-col items-center min-h-screen">
+
+    <div class="bg-white p-6 rounded-3xl shadow-xl max-w-2xl w-full mx-auto my-auto border-4 border-pink-300">
+        <h1 class="text-3xl sm:text-4xl font-bold text-center mb-2 text-indigo-600">Nolwandle's Play & Discovery Space</h1>
+        <p class="text-center text-gray-500 mb-6 text-lg">
+            Hello, Nolwandle! Let's learn and play together.<br>
+            Hallo, Nolwandle! Kom ons leer en speel saam.<br>
+            Sawubona, Nolwandle! Asihambe futhi sidlale ndawonye.
+        </p>
+
+        <div id="ai-face-container" class="flex justify-center mb-6">
+             <svg id="ai-face" width="150" height="150" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="100" cy="100" r="90" fill="#FEE2E2" stroke="#EF4444" stroke-width="4"/>
+                <g id="eye-left-group">
+                    <circle id="eye-left" cx="70" cy="80" r="15" fill="#FFFFFF" stroke="#EF4444" stroke-width="3"/>
+                    <circle id="pupil-left" cx="70" cy="80" r="7" fill="#EF4444"/>
+                </g>
+                <g id="eye-right-group">
+                    <circle id="eye-right" cx="130" cy="80" r="15" fill="#FFFFFF" stroke="#EF4444" stroke-width="3"/>
+                    <circle id="pupil-right" cx="130" cy="80" r="7" fill="#EF4444"/>
+                </g>
+                <path id="mouth" d="M 80 130 C 90 145, 110 145, 120 130" stroke="#EF4444" stroke-width="8" fill="none" stroke-linecap="round"/>
+            </svg>
+        </div>
+
+        <div class="bg-indigo-100 p-4 rounded-2xl mb-6 shadow-md border-2 border-indigo-300">
+            <h2 class="text-xl font-bold text-indigo-800 mb-3 text-center">Overall Progress</h2>
+            <div class="flex justify-between items-center mb-1 text-lg">
+                <span class="font-bold text-indigo-700">Rank: <span id="player-rank">Seedling</span></span>
+                <span class="font-bold text-indigo-700">Total Score: <span id="total-score">0</span></span>
+            </div>
+            <div id="progress-bar-container">
+                <div id="progress-bar" style="width: 0%;"></div>
+            </div>
+        </div>
+        
+        <div class="bg-gray-100 p-4 rounded-2xl mb-6 shadow-md border-2 border-gray-300">
+            <h2 class="text-xl font-bold text-gray-800 mb-2 text-center">Difficulty Settings</h2>
+            <div class="flex justify-center items-center space-x-2 difficulty-toggle">
+                <input type="radio" id="difficulty-easy" name="difficulty" value="easy" checked>
+                <label for="difficulty-easy" class="bg-gray-200">Easy</label>
+                <input type="radio" id="difficulty-medium" name="difficulty" value="medium">
+                <label for="difficulty-medium" class="bg-gray-200">Medium</label>
+                <input type="radio" id="difficulty-hard" name="difficulty" value="hard">
+                <label for="difficulty-hard" class="bg-gray-200">Hard</label>
+            </div>
+        </div>
+
+        <div id="message-box" class="message-box-overlay hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-lg border-4 border-green-400 max-w-sm text-center">
+                <p id="message-text" class="text-2xl font-bold text-gray-700 mb-4"></p>
+                <button id="close-message" class="bg-green-500 text-white font-bold py-2 px-6 rounded-full shadow-md hover:bg-green-600 transition-colors">Okay!</button>
+            </div>
+        </div>
+
+        <div id="games-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-blue-100 p-5 rounded-2xl shadow-md border-2 border-blue-300">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-blue-800 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-2 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>
+                        Learn Words
+                    </h2>
+                </div>
+                <textarea id="language-input" class="w-full h-24 p-3 rounded-xl border-2 border-blue-200 focus:outline-none focus:border-blue-400 mb-4 resize-none text-lg" placeholder="Ask a question..."></textarea>
+                <div class="flex items-center space-x-4">
+                    <button id="language-button" class="flex-grow bg-blue-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-blue-600 transition-colors flex items-center justify-center">
+                        <span id="language-button-text">Ask AI</span>
+                        <div id="language-spinner" class="spinner ml-2 hidden"></div>
+                    </button>
+                    <button id="mic-button" class="bg-pink-500 text-white p-3 rounded-full shadow-lg hover:bg-pink-600 transition-colors flex-shrink-0" aria-label="Use microphone">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    </button>
+                </div>
+                <div id="language-response" class="mt-4 p-4 bg-white rounded-xl border-2 border-blue-200 text-gray-800 text-lg min-h-[50px]"></div>
+            </div>
+
+            <div class="bg-green-100 p-5 rounded-2xl shadow-md border-2 border-green-300">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-green-800">Spelling Bee</h2>
+                    <span class="font-bold text-green-700 text-lg">Score: <span id="spelling-score">0</span></span>
+                </div>
+                <div class="flex items-center justify-center mb-4">
+                    <button id="speak-button" class="bg-green-500 text-white p-4 rounded-full shadow-lg hover:bg-green-600" aria-label="Hear word"><svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.858 15.858a5 5 0 010-7.072m2.828 9.9a9 9 0 010-12.728M12 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg></button>
+                </div>
+                <div class="flex items-center justify-center space-x-2 mb-4">
+                    <input type="text" id="spelling-answer" class="w-48 text-center p-3 rounded-xl border-2 border-green-200 focus:outline-none focus:border-green-400 text-2xl" placeholder="Spell...">
+                    <button id="spelling-check-button" class="bg-green-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-green-600">Check</button>
+                </div>
+                <button id="new-spelling-button" class="w-full bg-teal-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-teal-600">New Word</button>
+            </div>
+
+            <div class="bg-cyan-100 p-5 rounded-2xl shadow-md border-2 border-cyan-300">
+                 <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-cyan-800">Memory Match</h2>
+                    <span class="font-bold text-cyan-700 text-lg">Score: <span id="memory-score">0</span></span>
+                </div>
+                <div id="memory-game-board" class="mb-4"></div>
+                <button id="new-memory-game-button" class="w-full bg-sky-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-sky-600">New Game</button>
+            </div>
+            
+            <div class="bg-orange-100 p-5 rounded-2xl shadow-md border-2 border-orange-300">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-orange-800">Color Matching</h2>
+                    <span class="font-bold text-orange-700 text-lg">Score: <span id="color-score">0</span></span>
+                </div>
+                <div class="flex items-center justify-center mb-4">
+                    <div id="color-prompt-display" class="w-24 h-24 rounded-2xl shadow-lg border-4 border-white"></div>
+                </div>
+                <div id="color-options-container" class="grid grid-cols-3 gap-4 mb-4"></div>
+                <div class="flex items-center justify-center space-x-2 mb-4">
+                    <button id="color-check-button" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-orange-600">Check</button>
+                </div>
+                <button id="new-color-game-button" class="w-full bg-red-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-red-600">New Game</button>
+            </div>
+
+            <div class="bg-yellow-100 p-5 rounded-2xl shadow-md border-2 border-yellow-300">
+                 <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-yellow-800">Counting Fun!</h2>
+                    <span class="font-bold text-yellow-700 text-lg">Score: <span id="counting-score">0</span></span>
+                </div>
+                <div id="counting-area" class="text-4xl text-center mb-4 min-h-[50px]"></div>
+                <div class="flex items-center justify-center space-x-2 mb-4">
+                    <input type="number" id="counting-answer" class="w-24 text-center p-3 rounded-xl border-2 border-yellow-200 focus:outline-none focus:border-yellow-400 text-2xl" placeholder="?">
+                    <button id="counting-check-button" class="bg-yellow-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-yellow-600">Check</button>
+                </div>
+                <button id="new-counting-button" class="w-full bg-purple-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-purple-600">New Game</button>
+            </div>
+
+            <div class="bg-pink-100 p-5 rounded-2xl shadow-md border-2 border-pink-300">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-pink-800">Practice Math</h2>
+                    <span class="font-bold text-pink-700 text-lg">Score: <span id="math-score">0</span></span>
+                </div>
+                <div class="flex flex-col items-center justify-center mb-4 text-4xl sm:text-5xl font-bold text-gray-800">
+                    <span id="math-problem">Let's do math!</span>
+                </div>
+                <div class="flex items-center justify-center space-x-2 mb-4">
+                    <input type="number" id="math-answer" class="w-24 text-center p-3 rounded-xl border-2 border-pink-200 focus:outline-none focus:border-pink-400 text-2xl" placeholder="?">
+                    <button id="math-check-button" class="bg-pink-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:bg-pink-600">Check</button>
+                </div>
+                <button id="new-problem-button" class="w-full bg-indigo-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-indigo-600">New Problem</button>
+            </div>
+
+            <div class="bg-lime-100 p-5 rounded-2xl shadow-md border-2 border-lime-300 md:col-span-2">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-lime-800">Reaction Speed</h2>
+                     <span class="font-bold text-lime-700 text-lg">Score: <span id="reaction-score">0</span></span>
+                </div>
+                <div id="reaction-game-area" class="mb-4"></div>
+                <button id="new-reaction-game-button" class="w-full bg-rose-500 text-white font-bold py-3 rounded-full shadow-lg hover:bg-rose-600">New Game</button>
+            </div>
+        </div>
+
+        <div class="bg-purple-100 p-5 rounded-2xl shadow-md border-2 border-purple-300 mt-6">
+            <h2 class="text-2xl font-bold text-purple-800 mb-4 text-center">Progress Chart</h2>
+            <div id="score-chart" class="space-y-2"></div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { GoogleGenAI } from "@google/genai";
+        
+        let ai;
+        try {
+            ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        } catch (e) {
+            console.error("Failed to initialize GoogleGenAI. Check your API key.", e);
+        }
+
+        // DOM Elements
+        const languageInput = document.getElementById('language-input');
+        const languageButton = document.getElementById('language-button');
+        const languageButtonText = document.getElementById('language-button-text');
+        const languageSpinner = document.getElementById('language-spinner');
+        const languageResponse = document.getElementById('language-response');
+        const micButton = document.getElementById('mic-button');
+
+        const mathProblemEl = document.getElementById('math-problem');
+        const mathAnswerInput = document.getElementById('math-answer');
+        const mathCheckButton = document.getElementById('math-check-button');
+        const newProblemButton = document.getElementById('new-problem-button');
+        
+        const countingArea = document.getElementById('counting-area');
+        const countingAnswerInput = document.getElementById('counting-answer');
+        const countingCheckButton = document.getElementById('counting-check-button');
+        const newCountingButton = document.getElementById('new-counting-button');
+        
+        const spellingAnswerInput = document.getElementById('spelling-answer');
+        const spellingCheckButton = document.getElementById('spelling-check-button');
+        const newSpellingButton = document.getElementById('new-spelling-button');
+        const speakButton = document.getElementById('speak-button');
+        
+        const colorPromptDisplay = document.getElementById('color-prompt-display');
+        const colorOptionsContainer = document.getElementById('color-options-container');
+        const colorCheckButton = document.getElementById('color-check-button');
+        const newColorGameButton = document.getElementById('new-color-game-button');
+        
+        const memoryGameBoard = document.getElementById('memory-game-board');
+        const newMemoryGameButton = document.getElementById('new-memory-game-button');
+        
+        const reactionGameArea = document.getElementById('reaction-game-area');
+        const newReactionGameButton = document.getElementById('new-reaction-game-button');
+        
+        const messageBoxOverlay = document.getElementById('message-box');
+        const messageBoxText = document.getElementById('message-text');
+        const closeMessageButton = document.getElementById('close-message');
+        
+        const aiFace = document.getElementById('ai-face');
+        const difficultyRadios = document.querySelectorAll('input[name="difficulty"]');
+        
+        const totalScoreEl = document.getElementById('total-score');
+        const playerRankEl = document.getElementById('player-rank');
+        const progressBarEl = document.getElementById('progress-bar');
+        const scoreChartEl = document.getElementById('score-chart');
+        
+        const gameScoreEls = {
+            math: document.getElementById('math-score'),
+            counting: document.getElementById('counting-score'),
+            spelling: document.getElementById('spelling-score'),
+            color: document.getElementById('color-score'),
+            memory: document.getElementById('memory-score'),
+            reaction: document.getElementById('reaction-score'),
+        };
+
+        let currentMathAnswer = 0;
+        let currentCountingAnswer = 0;
+        let currentSpellingWord = '';
+        let currentColorAnswer = { name: '', hex: '' };
+        let userSelectedColor = null;
+        let currentDifficulty = 'easy';
+        let typewriterTimeout;
+        let reactionGameTimeout;
+        let reactionStartTime = 0;
+        
+        // Memory game state
+        let memoryCards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let canFlip = true;
+
+        let scores = { math: 0, counting: 0, spelling: 0, color: 0, memory: 0, reaction: 0 };
+        const ranks = [
+            { name: 'Seedling', threshold: 0 }, { name: 'Sprout', threshold: 100 },
+            { name: 'Blossom', threshold: 250 }, { name: 'Sunflower', threshold: 500 },
+            { name: 'Superstar!', threshold: 1000 }
+        ];
+
+        const gameData = {
+            spellingWords: {
+                easy: ['cat', 'dog', 'sun', 'run', 'bed', 'red', 'pig', 'big', 'hat', 'mat'],
+                medium: ['apple', 'house', 'train', 'happy', 'light', 'green', 'water', 'school'],
+                hard: ['beautiful', 'wonderful', 'education', 'discovery', 'celebrate', 'adventure']
+            },
+            colors: {
+                easy: [{ name: 'Red', hex: '#FF0000' }, { name: 'Green', hex: '#00FF00' }, { name: 'Blue', hex: '#0000FF' }, { name: 'Yellow', hex: '#FFFF00' }],
+                medium: [{ name: 'Orange', hex: '#FFA500' }, { name: 'Purple', hex: '#800080' }, { name: 'Pink', hex: '#FFC0CB' }, { name: 'Brown', hex: '#A52A2A' }, { name: 'Gray', hex: '#808080' }, { name: 'Cyan', hex: '#00FFFF' }],
+                hard: [{ name: 'Teal', hex: '#008080' }, { name: 'Maroon', hex: '#800000' }, { name: 'Navy', hex: '#000080' }, { name: 'Olive', hex: '#808000' }, { name: 'Turquoise', hex: '#40E0D0' }, { name: 'Violet', hex: '#EE82EE' }, { name: 'Indigo', hex: '#4B0082' }, { name: 'Gold', hex: '#FFD700' }]
+            },
+            memoryEmojis: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼']
+        };
+
+        const showMessage = (text, isSuccess = false) => {
+            messageBoxText.textContent = text;
+            const messageBoxDiv = messageBoxOverlay.querySelector('div');
+            closeMessageButton.classList.remove('bg-green-500','bg-red-500','hover:bg-green-600','hover:bg-red-600');
+            messageBoxDiv.classList.remove('border-green-400', 'border-red-400');
+            if (isSuccess) {
+                messageBoxDiv.classList.add('border-green-400');
+                closeMessageButton.classList.add('bg-green-500', 'hover:bg-green-600');
+            } else {
+                messageBoxDiv.classList.add('border-red-400');
+                closeMessageButton.classList.add('bg-red-500', 'hover:bg-red-600');
+            }
+            messageBoxOverlay.classList.remove('hidden');
+        };
+
+        const typeWriter = (text, element) => {
+            clearTimeout(typewriterTimeout);
+            element.textContent = ''; let i = 0;
+            aiFace.classList.remove('thinking', 'correct', 'wrong'); aiFace.classList.add('talking');
+            function type() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i); i++;
+                    typewriterTimeout = window.setTimeout(type, 50);
+                } else { aiFace.classList.remove('talking'); }
+            }
+            type();
+        };
+
+        const addPoints = (game, amount) => {
+            scores[game] += amount;
+            const pointsEl = document.createElement('div');
+            pointsEl.textContent = `+${amount}`;
+            pointsEl.className = 'points-animation';
+            document.body.appendChild(pointsEl);
+            pointsEl.addEventListener('animationend', () => pointsEl.remove());
+            updateProgress();
+            saveProgress();
+        };
+
+        const updateProgress = () => {
+            const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
+            
+            // Update individual scores
+            for (const game in scores) {
+                if (gameScoreEls[game]) gameScoreEls[game].textContent = scores[game];
+            }
+
+            // Update total score and rank
+            let currentRank = ranks[0];
+            let nextRank = ranks[1];
+            for (let i = 0; i < ranks.length; i++) {
+                if (totalScore >= ranks[i].threshold) currentRank = ranks[i];
+            }
+            const nextRankIndex = ranks.findIndex(r => r.name === currentRank.name) + 1;
+            nextRank = nextRankIndex < ranks.length ? ranks[nextRankIndex] : { name: "Max Rank!", threshold: currentRank.threshold };
+
+            if (playerRankEl.textContent !== currentRank.name && currentRank.threshold > 0) {
+                showMessage(`You've reached the rank of ${currentRank.name}! Keep going!`, true);
+            }
+            playerRankEl.textContent = currentRank.name;
+            totalScoreEl.textContent = totalScore;
+            
+            const progressPercentage = nextRank.threshold === currentRank.threshold ? 100 : Math.min(100, ((totalScore - currentRank.threshold) / (nextRank.threshold - currentRank.threshold)) * 100);
+            progressBarEl.style.width = `${progressPercentage}%`;
+            
+            updateScoreChart();
+        };
+        
+        const updateScoreChart = () => {
+            scoreChartEl.innerHTML = '';
+            const maxScore = Math.max(10, ...Object.values(scores));
+            const gameColors = {
+                math: 'bg-pink-500', counting: 'bg-yellow-500', spelling: 'bg-green-500',
+                color: 'bg-orange-500', memory: 'bg-cyan-500', reaction: 'bg-lime-500'
+            };
+            for (const game in scores) {
+                const percentage = (scores[game] / maxScore) * 100;
+                const chartItem = `
+                    <div class="flex items-center">
+                        <span class="w-24 font-bold text-gray-600 capitalize">${game}</span>
+                        <div class="flex-1 chart-bar-bg">
+                            <div class="chart-bar h-6 rounded-r-md ${gameColors[game]}" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>`;
+                scoreChartEl.innerHTML += chartItem;
+            }
+        };
+
+        const saveProgress = () => { localStorage.setItem('nolwandle-progress-v2', JSON.stringify(scores)); };
+        const loadProgress = () => {
+            const saved = localStorage.getItem('nolwandle-progress-v2');
+            if (saved) scores = { ...scores, ...JSON.parse(saved) };
+            updateProgress();
+        };
+
+        // --- GAME LOGIC ---
+        languageButton.addEventListener('click', async () => {
+            const prompt = languageInput.value.trim(); if (!prompt) return;
+            if (!ai) { showMessage("AI is not configured. Please set the API_KEY.", false); return; }
+            aiFace.classList.add('thinking');
+            languageButtonText.classList.add('hidden'); languageSpinner.classList.remove('hidden'); languageButton.disabled = true;
+            try {
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: prompt,
+                    config: {
+                        systemInstruction: "You are a friendly tutor for a 6-year-old. Keep answers simple."
+                    }
+                });
+                typeWriter(response.text || "I'm not sure how to answer that.", languageResponse);
+            } catch (error) { 
+                console.error("AI Error:", error);
+                typeWriter("Oops, something went wrong with the AI.", languageResponse); 
+            }
+            finally { languageButtonText.classList.remove('hidden'); languageSpinner.classList.add('hidden'); languageButton.disabled = false; aiFace.classList.remove('thinking'); }
+        });
+
+        const generateNewMathProblem = () => {
+            const max = { easy: 10, medium: 25, hard: 100 }[currentDifficulty];
+            let n1 = Math.ceil(Math.random()*max), n2 = Math.ceil(Math.random()*max);
+            const ops = currentDifficulty === 'hard' ? ['+', '-', '*'] : ['+', '-'];
+            const op = ops[Math.floor(Math.random() * ops.length)];
+            if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
+            if (op === '*') { n1 = Math.ceil(Math.random()*10); n2 = Math.ceil(Math.random()*10); }
+            currentMathAnswer = eval(`${n1}${op}${n2}`);
+            mathProblemEl.textContent = `${n1} ${op} ${n2} = ?`;
+            mathAnswerInput.value = '';
+        };
+        mathCheckButton.addEventListener('click', () => {
+            if (parseInt(mathAnswerInput.value) === currentMathAnswer) {
+                showMessage("That's right!", true); aiFace.classList.add('correct'); addPoints('math', 10); setTimeout(generateNewMathProblem, 1500);
+            } else { showMessage("Not quite. Try again!", false); aiFace.classList.add('wrong'); }
+        });
+
+        const generateCountingProblem = () => {
+            const max = { easy: 10, medium: 20, hard: 30 }[currentDifficulty];
+            const emojis = ['⭐', '💖', '🍎', '🎈', '🍭'];
+            const count = Math.ceil(Math.random()*max);
+            countingArea.textContent = emojis[Math.floor(Math.random()*emojis.length)].repeat(count);
+            currentCountingAnswer = count; countingAnswerInput.value = '';
+        };
+        countingCheckButton.addEventListener('click', () => {
+            if (parseInt(countingAnswerInput.value) === currentCountingAnswer) {
+                showMessage("Great counting!", true); aiFace.classList.add('correct'); addPoints('counting', 10); setTimeout(generateCountingProblem, 1500);
+            } else { showMessage("Let's count again.", false); aiFace.classList.add('wrong'); }
+        });
+
+        const speakWord = (word, spell = false) => {
+            if (!'speechSynthesis' in window) return;
+            speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(spell ? word.split('').join(' ') : word);
+            utterance.rate = spell ? 0.6 : 1;
+            speechSynthesis.speak(utterance);
+        };
+        const generateNewSpellingProblem = () => {
+            const list = gameData.spellingWords[currentDifficulty];
+            currentSpellingWord = list[Math.floor(Math.random() * list.length)];
+            spellingAnswerInput.value = ''; setTimeout(() => speakWord(currentSpellingWord), 300);
+        };
+        spellingCheckButton.addEventListener('click', () => {
+            if (spellingAnswerInput.value.trim().toLowerCase() === currentSpellingWord) {
+                showMessage("You spelled it right!", true); aiFace.classList.add('correct'); addPoints('spelling', 10); setTimeout(generateNewSpellingProblem, 1500);
+            } else {
+                showMessage(`Good try! The word was "${currentSpellingWord}".`, false); aiFace.classList.add('wrong');
+                speakWord(`The word was ${currentSpellingWord}. Let's spell it.`, false);
+                setTimeout(() => speakWord(currentSpellingWord, true), 2000);
+            }
+        });
+
+        const generateNewColorGame = () => {
+            const allColors = [...gameData.colors.easy, ...gameData.colors.medium, ...gameData.colors.hard];
+            const count = { easy: 3, medium: 6, hard: 9 }[currentDifficulty];
+            const gameColors = allColors.sort(() => .5 - Math.random()).slice(0, count);
+            currentColorAnswer = gameColors[Math.floor(Math.random() * gameColors.length)];
+            colorPromptDisplay.style.backgroundColor = currentColorAnswer.hex;
+            colorOptionsContainer.innerHTML = '';
+            gameColors.sort(() => .5 - Math.random()).forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = "w-full h-16 rounded-xl shadow-lg border-4 border-transparent focus:border-blue-500";
+                btn.style.backgroundColor = c.hex;
+                btn.onclick = () => {
+                    userSelectedColor = c.hex;
+                    document.querySelectorAll('#color-options-container button').forEach(b => b.classList.remove('border-blue-500'));
+                    btn.classList.add('border-blue-500');
+                };
+                colorOptionsContainer.appendChild(btn);
+            });
+            userSelectedColor = null;
+        };
+        colorCheckButton.addEventListener('click', () => {
+            if (!userSelectedColor) { showMessage("Choose a color!", false); return; }
+            if (userSelectedColor === currentColorAnswer.hex) {
+                showMessage("Perfect match!", true); aiFace.classList.add('correct'); addPoints('color', 10); setTimeout(generateNewColorGame, 1500);
+            } else { showMessage("Not quite. Try again!", false); aiFace.classList.add('wrong'); }
+        });
+
+        const generateNewMemoryGame = () => {
+            const pairCount = { easy: 4, medium: 6, hard: 8 }[currentDifficulty];
+            memoryGameBoard.innerHTML = '';
+            memoryGameBoard.style.gridTemplateColumns = `repeat(${pairCount === 6 ? 4 : pairCount}, 1fr)`;
+            flippedCards = []; matchedPairs = 0; canFlip = true;
+            const emojis = gameData.memoryEmojis.slice(0, pairCount);
+            memoryCards = [...emojis, ...emojis].sort(() => .5 - Math.random());
+            memoryCards.forEach((emoji, index) => {
+                const card = document.createElement('div');
+                card.className = 'memory-card'; card.dataset.index = index;
+                card.innerHTML = `<div class="card-face card-back">?</div><div class="card-face card-front">${emoji}</div>`;
+                card.addEventListener('click', handleCardClick);
+                memoryGameBoard.appendChild(card);
+            });
+        };
+        const handleCardClick = (e) => {
+            const card = e.currentTarget;
+            if (!canFlip || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+            card.classList.add('flipped');
+            flippedCards.push(card);
+            if (flippedCards.length === 2) {
+                canFlip = false;
+                const [card1, card2] = flippedCards;
+                if (memoryCards[card1.dataset.index] === memoryCards[card2.dataset.index]) {
+                    setTimeout(() => {
+                        card1.classList.add('matched'); card2.classList.add('matched');
+                        matchedPairs++;
+                        addPoints('memory', 10);
+                        if (matchedPairs === memoryCards.length / 2) {
+                            showMessage("You found them all! Great job!", true);
+                        }
+                        canFlip = true;
+                    }, 500);
+                } else {
+                    setTimeout(() => {
+                        card1.classList.remove('flipped'); card2.classList.remove('flipped');
+                        canFlip = true;
+                    }, 1200);
+                }
+                flippedCards = [];
+            }
+        };
+
+        const startNewReactionGame = () => {
+            clearTimeout(reactionGameTimeout);
+            reactionGameArea.innerHTML = '<p class="text-2xl text-gray-500">Get Ready...</p>';
+            reactionStartTime = 0;
+            reactionGameTimeout = setTimeout(() => {
+                reactionGameArea.innerHTML = '';
+                const target = document.createElement('div');
+                const size = { easy: 80, medium: 50, hard: 30 }[currentDifficulty];
+                target.className = `reaction-target target-${currentDifficulty}`;
+                const rect = reactionGameArea.getBoundingClientRect();
+                target.style.top = `${Math.random() * (rect.height - size)}px`;
+                target.style.left = `${Math.random() * (rect.width - size)}px`;
+                target.onclick = () => {
+                    if (reactionStartTime === 0) return;
+                    const time = Date.now() - reactionStartTime;
+                    showMessage(`Great job! Reaction: ${time}ms`, true);
+                    addPoints('reaction', 10);
+                    reactionStartTime = 0;
+                    setTimeout(startNewReactionGame, 1500);
+                };
+                reactionGameArea.appendChild(target);
+                reactionStartTime = Date.now();
+            }, Math.random() * 3000 + 1000);
+        };
+
+        const restartAllGames = () => {
+            generateNewMathProblem(); generateCountingProblem();
+            generateNewSpellingProblem(); generateNewColorGame();
+            generateNewMemoryGame(); startNewReactionGame();
+            aiFace.classList.remove('correct', 'wrong', 'talking', 'thinking');
+        };
+
+        // Event Listeners
+        closeMessageButton.addEventListener('click', () => { messageBoxOverlay.classList.add('hidden'); aiFace.classList.remove('correct', 'wrong', 'talking', 'thinking'); });
+        difficultyRadios.forEach(r => r.addEventListener('change', e => { currentDifficulty = e.target.value; restartAllGames(); }));
+        [newProblemButton, newCountingButton, newSpellingButton, newColorGameButton, newMemoryGameButton, newReactionGameButton].forEach(btn => {
+            const gameMap = { 'new-problem-button': generateNewMathProblem, 'new-counting-button': generateCountingProblem, 'new-spelling-button': generateNewSpellingProblem, 'new-color-game-button': generateNewColorGame, 'new-memory-game-button': generateNewMemoryGame, 'new-reaction-game-button': startNewReactionGame };
+            btn.addEventListener('click', gameMap[btn.id]);
+        });
+        speakButton.addEventListener('click', () => speakWord(currentSpellingWord));
+
+        // Voice Input
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            micButton.addEventListener('click', () => { try { recognition.start(); micButton.classList.add('listening'); } catch(e) { /* ignore */ } });
+            recognition.onresult = e => { languageInput.value = e.results[0][0].transcript; languageButton.click(); };
+            recognition.onend = () => micButton.classList.remove('listening');
+            recognition.onerror = e => { showMessage(`Mic error: ${e.error}`, false); micButton.classList.remove('listening'); };
+        } else { micButton.style.display = 'none'; }
+        
+        window.onload = () => { loadProgress(); restartAllGames(); };
+    </script>
+</body>
+</html>
